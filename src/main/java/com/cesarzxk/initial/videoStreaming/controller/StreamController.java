@@ -46,7 +46,6 @@ public class StreamController {
 
         try {
             UploadResponseDTO dto = streamService.convertVideos(file);
-
             return ResponseEntity.ok(Map.of(
                     "message", dto.getMessage(),
                     "files", dto.getFiles(),

@@ -7,13 +7,13 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class MinioConfig {
-    @Value("${minio.endpoint:http://192.168.31.2:9000}")
+    @Value("${minio.endpoint:http://192.168.31.2:9020}")
     private String minioEndpoint;
 
-    @Value("${minio.accessKey:admin}")
+    @Value("${minio.accessKey:adminuser}")
     private String accessKey;
 
-    @Value("${minio.secretKey:admin}")
+    @Value("${minio.secretKey:123456789}")
     private String secretKey;
 
     @Bean

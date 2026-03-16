@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -25,6 +26,10 @@ public class StorageService {
     public StorageService(MinioClient minioClient) {
         this.minioClient = minioClient;
         log.info("StorageService initialized");
+    }
+
+    public static void deleteFile(Path pathFile) throws Exception {
+        Files.deleteIfExists(pathFile);
     }
 
     private void ensureBucketExists() throws Exception {
@@ -66,33 +71,35 @@ public class StorageService {
                             .build()
             );
         }
-
         return objectName;
     }
 
     public String setVideo(Path filePath) throws Exception {
         ensureBucketExists();
-
         if (filePath == null || !Files.exists(filePath) || Files.size(filePath) == 0) {
             throw new IllegalArgumentException("Arquivo inválido ou inexistente: " + filePath);
         }
 
         String originalName = filePath.getFileName().toString();
 
-        long size = Files.size(filePath);
-        String contentType = Files.probeContentType(filePath);
+            long size = Files.size(filePath);
+            String contentType = Files.probeContentType(filePath);
 
-        try (InputStream inputStream = Files.newInputStream(filePath)) {
-            MinioClient client = getClient();
-            client.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(BUCKET_NAME)
-                            .object(originalName)
-                            .stream(inputStream, size, -1)
-                            .contentType(contentType)
-                            .build()
-            );
-        }
+            try (InputStream inputStream = Files.newInputStream(filePath)) {
+                MinioClient client = getClient();
+                client.putObject(
+                        PutObjectArgs.builder()
+                                .bucket(BUCKET_NAME)
+                                .object(originalName)
+                                .stream(inputStream, size, -1)
+                                .contentType(contentType)
+                                .build()
+                );
+            }finally {
+                StorageService.deleteFile(filePath);
+            }
+
+
 
         return originalName;
     }

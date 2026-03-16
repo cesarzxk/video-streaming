@@ -74,7 +74,7 @@ public class VideoConversionService {
 
         int exitCode = process.waitFor();
         if (exitCode != 0) {
-            throw new RuntimeException("Erro ao converter vídeo para " + targetHeight + "p.\n" + logs);
+            throw new RuntimeException("Error ao converter vídeo para " + targetHeight + "p.\n" + logs);
         }
     }
 

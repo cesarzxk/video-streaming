@@ -127,4 +127,3 @@ Invoke-RestMethod -Uri "http://localhost:8080/stream/<objectName>" -Method Get -
 MIT
 
 ---
-Se quiser, eu posso também gerar presigned URLs automaticamente para os arquivos convertidos e atualizar a resposta `urls` para conter links diretos (diga qual validade prefere, por exemplo: 1h). Também posso mover a etapa de upload do arquivo original para dentro do `StreamService` caso queira centralizar a lógica no serviço (em vez do controller). | Fim do README

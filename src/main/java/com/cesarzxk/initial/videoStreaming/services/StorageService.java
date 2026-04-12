@@ -1,5 +1,6 @@
 package com.cesarzxk.initial.videoStreaming.services;
 
+import com.cesarzxk.initial.videoStreaming.dto.VideoRequestDTO;
 import io.minio.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -10,26 +11,27 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 @Service
 public class StorageService {
     private static final Logger log = LoggerFactory.getLogger(StorageService.class);
-    @Value("${minio.bucket:teste}")
+    @Value("${minio.bucket:streaming-app}")
     private String BUCKET_NAME;
-
+    private final VideoService videoService;
     private final MinioClient minioClient;
 
-    public StorageService(MinioClient minioClient) {
-        this.minioClient = minioClient;
-        log.info("StorageService initialized");
+    private MinioClient getClient() {
+        if (this.minioClient == null) {
+            throw new IllegalStateException("MinIO client is not initialized");
+        }
+        return this.minioClient;
     }
 
-    public static void deleteFile(Path pathFile) throws Exception {
-        Files.deleteIfExists(pathFile);
+    public StorageService(MinioClient minioClient, VideoService videoService) {
+        this.minioClient = minioClient;
+        this.videoService = videoService;
+        log.info("StorageService initialized");
     }
 
     private void ensureBucketExists() throws Exception {
@@ -50,77 +52,6 @@ public class StorageService {
         }
     }
 
-    public String setVideo(MultipartFile file) throws Exception {
-        ensureBucketExists();
-
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("Arquivo inválido ou vazio");
-        }
-
-        String originalName = file.getOriginalFilename();
-        String objectName = UUID.randomUUID() + "_" + (originalName != null ? originalName : "video");
-
-        try (InputStream inputStream = file.getInputStream()) {
-            MinioClient client = getClient();
-            client.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(BUCKET_NAME)
-                            .object(objectName)
-                            .stream(inputStream, file.getSize(), -1)
-                            .contentType(file.getContentType())
-                            .build()
-            );
-        }
-        return objectName;
-    }
-
-    public String setVideo(Path filePath) throws Exception {
-        ensureBucketExists();
-        if (filePath == null || !Files.exists(filePath) || Files.size(filePath) == 0) {
-            throw new IllegalArgumentException("Arquivo inválido ou inexistente: " + filePath);
-        }
-
-        String originalName = filePath.getFileName().toString();
-
-            long size = Files.size(filePath);
-            String contentType = Files.probeContentType(filePath);
-
-            try (InputStream inputStream = Files.newInputStream(filePath)) {
-                MinioClient client = getClient();
-                client.putObject(
-                        PutObjectArgs.builder()
-                                .bucket(BUCKET_NAME)
-                                .object(originalName)
-                                .stream(inputStream, size, -1)
-                                .contentType(contentType)
-                                .build()
-                );
-            }finally {
-                StorageService.deleteFile(filePath);
-            }
-
-
-
-        return originalName;
-    }
-
-    public List<String> setVideos(List<MultipartFile> files) throws Exception {
-        ensureBucketExists();
-
-        if (files == null || files.isEmpty()) {
-            throw new IllegalArgumentException("Nenhum arquivo enviado");
-        }
-
-        List<String> uploadedFiles = new ArrayList<>();
-
-        for (MultipartFile file : files) {
-            String objectName = setVideo(file);
-            uploadedFiles.add(objectName);
-        }
-
-        return uploadedFiles;
-    }
-
     public long getObjectSize(String objectName) throws Exception {
         ensureBucketExists();
         io.minio.StatObjectResponse stat = minioClient.statObject(
@@ -131,6 +62,11 @@ public class StorageService {
         );
         return stat.size();
     }
+
+    public static void deleteFile(Path pathFile) throws Exception {
+        Files.deleteIfExists(pathFile);
+    }
+
 
     public InputStream getVideo(String objectName, long offset, Long length) throws Exception {
         ensureBucketExists();
@@ -147,10 +83,34 @@ public class StorageService {
         return minioClient.getObject(builder.build());
     }
 
-    private MinioClient getClient() {
-        if (this.minioClient == null) {
-            throw new IllegalStateException("MinIO client is not initialized");
+
+    public String setVideo(Path path) throws Exception {
+        ensureBucketExists();
+
+        if (path == null || !Files.exists(path)) {
+            throw new IllegalArgumentException("Arquivo inválido ou inexistente: " + path);
         }
-        return this.minioClient;
+
+        String originalName = path.getFileName().toString();
+        String objectName = UUID.randomUUID() + "_" + originalName;
+        long size = Files.size(path);
+
+        try (InputStream inputStream = Files.newInputStream(path)) {
+            getClient().putObject(
+                    PutObjectArgs.builder()
+                            .bucket(BUCKET_NAME)
+                            .object(objectName)
+                            .stream(inputStream, size, -1)
+                            .contentType(Files.probeContentType(path))
+                            .build()
+            );
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            throw new RuntimeException(e);
+        } finally {
+            deleteFile(path);
+        }
+
+        return objectName;
     }
 }

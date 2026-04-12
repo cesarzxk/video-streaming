@@ -2,7 +2,7 @@ package com.cesarzxk.initial.videoStreaming.controller;
 
 import com.cesarzxk.initial.videoStreaming.dto.UploadResponseDTO;
 import com.cesarzxk.initial.videoStreaming.services.StreamService;
-import com.cesarzxk.initial.videoStreaming.services.StorageService;
+// ...existing code...
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -16,11 +16,9 @@ import java.util.Map;
 @RequestMapping("/stream")
 public class StreamController {
     private final StreamService streamService;
-    private final StorageService storageService;
 
-    public StreamController(StreamService streamService, StorageService storageService) {
+    public StreamController(StreamService streamService) {
         this.streamService = streamService;
-        this.storageService = storageService;
     }
 
     @GetMapping("/{name:.+}")
@@ -28,7 +26,7 @@ public class StreamController {
                                                 @RequestHeader(value = "Range", required = false) String rangeHeader) throws Exception {
         return streamService.getStreamVideo(name, rangeHeader);
     }
-
+    
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadVideo(@RequestParam("file") MultipartFile file) {
 

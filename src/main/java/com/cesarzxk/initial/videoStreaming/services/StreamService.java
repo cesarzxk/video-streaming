@@ -1,8 +1,10 @@
 package com.cesarzxk.initial.videoStreaming.services;
 
-// ...existing code...
+import com.cesarzxk.initial.videoStreaming.domain.Quality;
 import com.cesarzxk.initial.videoStreaming.dto.UploadResponseDTO;
+import com.cesarzxk.initial.videoStreaming.dto.VideoRequestDTO;
 import com.cesarzxk.initial.videoStreaming.services.VideoConversionService.ConversionResult;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
@@ -11,22 +13,29 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.lang.reflect.Array;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class StreamService {
     private final VideoConversionService videoConversionService;
     private final StorageService storageService;
     private final Path tempDir = Paths.get("videos", "temp").toAbsolutePath().normalize();
     public final Path encodedDir = Paths.get("videos", "encoded").toAbsolutePath().normalize();
+    private final  VideoService videoService;
+    private List<Quality> qualities;
 
-    public StreamService(VideoConversionService videoConversionService, StorageService storageService) {
+    public StreamService(VideoConversionService videoConversionService, StorageService storageService, VideoService videoService, List<Quality> qualities) {
         this.videoConversionService = videoConversionService;
         this.storageService = storageService;
+        this.videoService = videoService;
+        this.qualities = qualities;
     }
 
     public ResponseEntity<Resource> getStreamVideo(String name, String rangeHeader) throws Exception {
@@ -105,13 +114,35 @@ public class StreamService {
                 Path filePath = encodedDir.resolve(fileName).toAbsolutePath().normalize();
 
                 String objectName = storageService.setVideo(filePath);
-
                 storedFiles.put(label, objectName);
+
+                qualities.add(Quality.Q144);
 
                 try {
                     Files.deleteIfExists(filePath);
-                } catch (Exception ignored) {
+                } catch (Exception ex) {
+                    System.err.println("Falha ao apagar arquivo convertido local: " + filePath + " -> " + ex.getMessage());
                 }
+            }
+
+            try {
+
+
+                VideoRequestDTO newVideoEntity = VideoRequestDTO.builder()
+                        .title(tempName)
+                        .url(tempName.replace("_original", "") + ".mp4")
+                        .description(tempName)
+                        .thumbnailUrl(tempName)
+                        .uploaderName(tempName)
+                        .duration(file.getSize())
+                        .qualities(qualities)
+                        .build();
+
+                videoService.setVideo(newVideoEntity);
+
+            } catch (Exception ex) {
+                log.error("Failed to save video metadata for {}: {}", tempName, ex.getMessage());
+                throw new IllegalStateException("Vídeo carregado, mas falha ao salvar metadados: " + ex.getMessage(), ex);
             }
 
             return new UploadResponseDTO("Vídeo convertido com sucesso", storedFiles, storedFiles);
